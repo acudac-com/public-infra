@@ -22,10 +22,7 @@ resource "google_certificate_manager_dns_authorization" "main" {
   location = "global"
   domain   = var.domain
 }
-output "dns_authorization_record" {
-  value       = google_certificate_manager_dns_authorization.main.dns_resource_record
-  description = "The DNS record needed to authorize the domain for SSL certificate issuance."
-}
+
 
 resource "google_dns_record_set" "main" {
   count        = var.dns_zone != null ? 1 : 0
