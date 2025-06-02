@@ -80,7 +80,7 @@ resource "google_spanner_database_iam_member" "database_role" {
   for_each = local.environments
   project  = var.org_project
   instance = var.spanner_instance
-  database = "dev"
+  database = each.key
   role     = "roles/spanner.databaseRoleUser"
   condition {
     title      = "Fine grained role access"
