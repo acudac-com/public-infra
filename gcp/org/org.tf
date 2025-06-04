@@ -65,7 +65,7 @@ resource "google_storage_bucket" "tfstate" {
   versioning {
     enabled = true
   }
-  uniform_bucket_level_access = false
+  uniform_bucket_level_access = true
 
   lifecycle_rule {
     action {
@@ -86,7 +86,7 @@ resource "google_storage_bucket" "git" {
   versioning {
     enabled = true
   }
-  uniform_bucket_level_access = false
+  uniform_bucket_level_access = true
 
   lifecycle_rule {
     action {
