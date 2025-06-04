@@ -10,13 +10,13 @@ variable "billing_account" {
   type        = string
   description = "The billing account ID to use for the host project, e.g. QW2GW3-123456-HTRU74H"
 }
-variable "tfstate_bucket" {
+variable "buckets_domain" {
   type        = string
-  description = "The name of the GCS bucket to store Terraform state files, e.g. tfstate.example.com. This bucket is created in the host project."
+  description = "The domain to use for the bucket names, which will result in a git.{domain} and tfstate.{domain} bucket."
 }
-variable "tfstate_bucket_location" {
+variable "buckets_location" {
   type        = string
-  description = "The optional location of the GCS bucket for Terraform state files. Default is europe-west1"
+  description = "The optional location of the tfstate and git GCS buckets. Default is europe-west1"
   default     = "europe-west1"
 }
 
@@ -58,8 +58,9 @@ resource "google_compute_shared_vpc_host_project" "main" {
 }
 
 resource "google_storage_bucket" "tfstate" {
-  name                     = var.tfstate_bucket
-  location                 = var.tfstate_bucket_location
+  name                     = "tfstate.${var.buckets_domain}"
+  location                 = var.buckets_location
+  project                  = var.host_project
   public_access_prevention = "enforced"
   versioning {
     enabled = true
@@ -71,7 +72,28 @@ resource "google_storage_bucket" "tfstate" {
       type = "Delete"
     }
     condition {
-      age                = 0
+      age                = 30
+      num_newer_versions = 10
+    }
+  }
+}
+
+resource "google_storage_bucket" "git" {
+  name                     = "git.${var.buckets_domain}"
+  location                 = var.buckets_location
+  project                  = var.host_project
+  public_access_prevention = "enforced"
+  versioning {
+    enabled = true
+  }
+  uniform_bucket_level_access = false
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age                = 30
       num_newer_versions = 10
     }
   }
