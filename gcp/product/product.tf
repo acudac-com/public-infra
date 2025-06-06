@@ -99,7 +99,7 @@ resource "google_storage_bucket" "main" {
     retention_duration_seconds = 604800 // 7 days
   }
   versioning {
-    enabled = false
+    enabled = true
   }
   uniform_bucket_level_access = true
 
