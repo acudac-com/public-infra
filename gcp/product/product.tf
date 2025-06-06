@@ -102,6 +102,17 @@ resource "google_storage_bucket" "main" {
     enabled = false
   }
   uniform_bucket_level_access = true
+
+  // delete non-current objects older than 3 days
+  lifecycle_rule {
+    condition {
+      age                = 3
+      num_newer_versions = 1
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 resource "google_storage_bucket_iam_member" "main" {
