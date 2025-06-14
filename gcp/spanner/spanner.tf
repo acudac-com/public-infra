@@ -15,6 +15,14 @@ variable "edition" {
   description = "The optional edition selected for this instance. Different editions provide different capabilities at different price points. Possible values: STANDARD (default), ENTERPRISE, ENTERPRISE_PLUS"
   default     = "STANDARD"
 }
+variable "dev_dbs" {
+  type        = list(string)
+  description = "The list of databases to create for development. These databases won't be backed up."
+}
+variable "prod_dbs" {
+  type        = list(string)
+  description = "The list of databases to create for production. These databases will be backed up."
+}
 
 resource "google_spanner_instance" "main" {
   name                         = var.name
@@ -25,18 +33,28 @@ resource "google_spanner_instance" "main" {
   default_backup_schedule_type = "NONE"
 }
 
-resource "google_spanner_database" "environments" {
-  deletion_protection      = true
-  for_each                 = toset(["dev", "staging", "prod"])
+resource "google_spanner_database" "dev" {
+  for_each                 = toset(var.dev_dbs)
+  deletion_protection      = false
   instance                 = google_spanner_instance.main.name
   name                     = each.key
   version_retention_period = "1h"
   database_dialect         = "GOOGLE_STANDARD_SQL"
 }
 
-resource "google_spanner_backup_schedule" "prod_daily_full" {
+resource "google_spanner_database" "prod" {
+  for_each                 = toset(var.prod_dbs)
+  deletion_protection      = false
+  instance                 = google_spanner_instance.main.name
+  name                     = each.key
+  version_retention_period = "1h"
+  database_dialect         = "GOOGLE_STANDARD_SQL"
+}
+
+resource "google_spanner_backup_schedule" "prod" {
+  for_each           = toset(var.prod_dbs)
   instance           = google_spanner_instance.main.name
-  database           = google_spanner_database.environments["prod"].name
+  database           = google_spanner_database.prod[each.key].name
   name               = "daily-full"
   retention_duration = "1209600s" // 14 days
   spec {
