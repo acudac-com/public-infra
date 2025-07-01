@@ -53,3 +53,10 @@ resource "google_project_iam_member" "serverless_artifacts_reader" {
   role    = "roles/artifactregistry.reader"
   member  = "serviceAccount:service-${google_project.main.number}@serverless-robot-prod.iam.gserviceaccount.com"
 }
+
+resource "google_logging_project_exclusion" "cloudrun_requests" {
+  name        = "cloudrun-requests"
+  project     = var.project_id
+  description = "Exclude cloudrun request logs."
+  filter      = "LOG_ID(\"run.googleapis.com/requests\")"
+}
