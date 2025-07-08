@@ -57,6 +57,7 @@ resource "google_compute_shared_vpc_host_project" "main" {
   project = google_project.main.project_id
 }
 
+// All terraform state for the organisation.
 resource "google_storage_bucket" "tfstate" {
   name                     = "tfstate.${var.buckets_domain}"
   location                 = var.buckets_location
@@ -78,6 +79,8 @@ resource "google_storage_bucket" "tfstate" {
   }
 }
 
+// To store build artifacts for each product that are not docker images. 
+// Each product gets a subfolder.
 resource "google_storage_bucket" "builds" {
   name                     = "builds.${var.buckets_domain}"
   location                 = var.buckets_location
