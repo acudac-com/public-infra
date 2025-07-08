@@ -2,10 +2,6 @@ variable "name" {
   type        = string
   description = "Name of the product e.g. graziemille."
 }
-variable "bucket_domain" {
-  type        = string
-  description = "The bucket domain to use for each environment's bucket."
-}
 variable "org_project" {
   type        = string
   description = "The organisation's main project where its spanner instance and docker images are managed."
@@ -14,29 +10,17 @@ variable "region" {
   type        = string
   description = "The region to deploy the product's buckets and docker registry."
 }
-variable "dev_project" {
+variable "bucket_domain" {
   type        = string
-  description = "The google project to use as the product's dev environment. A service account is created for the product in this project."
-}
-variable "staging_project" {
-  type        = string
-  description = "The google project to use as the product's staging environment. A service account is created for the product in this project."
-}
-variable "prod_project" {
-  type        = string
-  description = "The google project to use as the product's prod environment. A service account is created for the product in this project."
+  description = "The bucket domain to use for each environment's bucket."
 }
 variable "spanner_instance" {
   type        = string
   description = "Name of the spanner instance this product's environments can store their data in."
 }
-
-locals {
-  environments = {
-    "dev" : var.dev_project
-    "staging" : var.staging_project
-    "prod" : var.prod_project
-  }
+variable "environment_projects" {
+  type        = list(string)
+  description = "The ids of the google projects into which this product is deployed."
 }
 
 resource "google_artifact_registry_repository" "main" {
@@ -61,14 +45,14 @@ resource "google_artifact_registry_repository" "main" {
 }
 
 resource "google_service_account" "main" {
-  for_each     = local.environments
-  project      = each.value
-  account_id   = var.name
-  display_name = var.name
+  for_each     = toset(var.environment_projects)
+  project      = each.key
+  account_id   = "${var.name}-main"
+  display_name = "${var.name}-main"
 }
 
 resource "google_spanner_database_iam_member" "fine_grained" {
-  for_each = local.environments
+  for_each = toset(var.environment_projects)
   project  = var.org_project
   instance = var.spanner_instance
   database = each.key
@@ -77,7 +61,7 @@ resource "google_spanner_database_iam_member" "fine_grained" {
 }
 
 resource "google_spanner_database_iam_member" "database_role" {
-  for_each = local.environments
+  for_each = toset(var.environment_projects)
   project  = var.org_project
   instance = var.spanner_instance
   database = each.key
@@ -90,9 +74,9 @@ resource "google_spanner_database_iam_member" "database_role" {
 }
 
 resource "google_storage_bucket" "main" {
-  for_each = local.environments
-  name     = "${var.name}.${each.value}.${var.bucket_domain}"
-  project  = each.value
+  for_each = toset(var.environment_projects)
+  name     = "${var.name}.${each.key}.${var.bucket_domain}"
+  project  = each.key
   location = var.region
 
   soft_delete_policy {
@@ -116,7 +100,7 @@ resource "google_storage_bucket" "main" {
 }
 
 resource "google_storage_bucket_iam_member" "main" {
-  for_each = local.environments
+  for_each = toset(var.environment_projects)
   bucket   = google_storage_bucket.main[each.key].name
   role     = "roles/storage.admin"
   member   = "serviceAccount:${google_service_account.main[each.key].email}"
