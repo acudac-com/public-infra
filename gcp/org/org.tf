@@ -78,8 +78,8 @@ resource "google_storage_bucket" "tfstate" {
   }
 }
 
-resource "google_storage_bucket" "git" {
-  name                     = "git.${var.buckets_domain}"
+resource "google_storage_bucket" "builds" {
+  name                     = "builds.${var.buckets_domain}"
   location                 = var.buckets_location
   project                  = var.host_project
   public_access_prevention = "enforced"
