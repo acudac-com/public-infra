@@ -2,9 +2,9 @@ variable "org_id" {
   type        = string
   description = "The organization ID for the GCP organization, e.g. 123456789"
 }
-variable "host_project" {
+variable "org_project" {
   type        = string
-  description = "The id of the organization's host project. This will be where your docker images, dns zones, ssl certificates, spanner instance and loadbalancer will live."
+  description = "The id of the organization's project. This is the shared vpc host and where your docker images, dns zones, ssl certificates, spanner instance and loadbalancer will live."
 }
 variable "billing_account" {
   type        = string
@@ -30,8 +30,8 @@ resource "google_organization_policy" "disabled" {
 }
 
 resource "google_project" "main" {
-  name            = var.host_project
-  project_id      = var.host_project
+  name            = var.org_project
+  project_id      = var.org_project
   org_id          = var.org_id
   billing_account = var.billing_account
 }
@@ -61,30 +61,7 @@ resource "google_compute_shared_vpc_host_project" "main" {
 resource "google_storage_bucket" "tfstate" {
   name                     = "tfstate.${var.buckets_domain}"
   location                 = var.buckets_location
-  project                  = var.host_project
-  public_access_prevention = "enforced"
-  versioning {
-    enabled = true
-  }
-  uniform_bucket_level_access = true
-
-  lifecycle_rule {
-    action {
-      type = "Delete"
-    }
-    condition {
-      age                = 30
-      num_newer_versions = 10
-    }
-  }
-}
-
-// To store build artifacts for each product that are not docker images. 
-// Each product gets a subfolder.
-resource "google_storage_bucket" "builds" {
-  name                     = "builds.${var.buckets_domain}"
-  location                 = var.buckets_location
-  project                  = var.host_project
+  project                  = var.org_project
   public_access_prevention = "enforced"
   versioning {
     enabled = true
