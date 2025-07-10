@@ -28,7 +28,7 @@ resource "google_cloud_identity_group" "builders" {
   parent       = "customers/${var.customer_id}"
   description  = "Members have full access to everything in the organisation."
   group_key {
-    id = "${var.name}.builders@${var.domain}"
+    id = "builders.${var.name}-product@${var.domain}"
   }
   labels = {
     "cloudidentity.googleapis.com/groups.discussion_forum" = ""
@@ -40,6 +40,22 @@ resource "google_cloud_identity_group_membership" "builders" {
   group    = google_cloud_identity_group.builders.id
   preferred_member_key {
     id = each.key
+  }
+  roles {
+    name = "MEMBER"
+  }
+}
+
+data "google_cloud_identity_group_lookup" "developers" {
+  group_key {
+    id = "developers@${var.domain}"
+  }
+}
+
+resource "google_cloud_identity_group_membership" "developers" {
+  group = data.google_cloud_identity_group_lookup.developers.name
+  preferred_member_key {
+    id = google_cloud_identity_group.builders.group_key[0].id
   }
   roles {
     name = "MEMBER"
@@ -116,3 +132,4 @@ resource "google_storage_managed_folder_iam_member" "builders" {
   member         = "group:${google_cloud_identity_group.builders.group_key[0].id}"
   role           = "roles/storage.objectAdmin"
 }
+
