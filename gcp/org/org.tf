@@ -30,7 +30,17 @@ variable "owners" {
 variable "developers" {
   type        = list(string)
   default     = []
-  description = "Members get the Storage Writer role to the package-development bucket. Note that organisation owners, product owners and product developers are automatically added to this group."
+  description = "Members get access to development resources like the package development bucket and tasks queue."
+}
+variable "network_admins" {
+  type        = list(string)
+  default     = []
+  description = "Members get full access to all networking related resources like loadbalancers, ip addresses etc."
+}
+variable "network_viewers" {
+  type        = list(string)
+  default     = []
+  description = "Members can see all networking related resources like loadbalancers, ip addresses etc."
 }
 
 resource "google_organization_policy" "disabled" {
@@ -88,7 +98,7 @@ resource "google_cloud_identity_group_membership" "owners" {
   for_each = toset(var.owners)
   group    = google_cloud_identity_group.owners.id
   preferred_member_key {
-    id = each.key
+    id = split(":", each.key)[1]
   }
   roles {
     name = "MEMBER"
@@ -128,7 +138,7 @@ resource "google_cloud_identity_group_membership" "developers" {
   for_each = toset(var.developers)
   group    = google_cloud_identity_group.developers.id
   preferred_member_key {
-    id = each.key
+    id = split(":", each.key)[1]
   }
   roles {
     name = "MEMBER"
@@ -184,4 +194,18 @@ resource "google_storage_bucket_iam_member" "package_developers" {
   role       = "roles/storage.objectAdmin"
   member     = each.key
   depends_on = [google_cloud_identity_group.developers]
+}
+
+resource "google_organization_iam_member" "network_admins" {
+  for_each = toset(var.network_admins)
+  org_id   = var.id
+  role     = "roles/compute.networkAdmin"
+  member   = each.key
+}
+
+resource "google_organization_iam_member" "network_viewers" {
+  for_each = toset(var.network_viewers)
+  org_id   = var.id
+  role     = "roles/compute.networkViewer"
+  member   = each.key
 }
