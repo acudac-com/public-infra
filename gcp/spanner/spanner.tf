@@ -48,6 +48,7 @@ resource "google_spanner_instance" "main" {
 
 resource "google_spanner_instance_iam_member" "admins" {
   for_each = toset(var.admins)
+  project  = var.project
   instance = google_spanner_instance.main.name
   role     = "roles/spanner.admin"
   member   = each.key
@@ -55,6 +56,7 @@ resource "google_spanner_instance_iam_member" "admins" {
 
 resource "google_spanner_instance_iam_member" "viewers" {
   for_each = toset(var.viewers)
+  project  = var.project
   instance = google_spanner_instance.main.name
   role     = "roles/spanner.viewer"
   member   = each.key
