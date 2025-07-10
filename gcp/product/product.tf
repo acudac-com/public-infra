@@ -1,26 +1,45 @@
 variable "name" {
   type        = string
-  description = "Name of the product e.g. graziemille."
+  description = "Name of the product e.g. acudac."
 }
 variable "org_project" {
   type        = string
-  description = "The organisation's main project where its spanner instance and docker images are managed."
+  description = "The project id of this product's parent organisation. This is where the product's docker registry and bucket is deployed."
 }
 variable "region" {
   type        = string
-  description = "The region to deploy the product's buckets and docker registry."
+  description = "The region to deploy the product's bucket and docker registry."
 }
-variable "bucket_domain" {
+variable "domain" {
   type        = string
-  description = "The bucket domain to use for each environment's bucket."
+  description = "The organisation's domain which is used for bucket name suffixes and group emails."
 }
-variable "spanner_instance" {
+variable "builders" {
   type        = string
-  description = "Name of the spanner instance this product's environments can store their data in."
+  description = "Members can read and write to the product's bucket and docker registry."
 }
-variable "environment_projects" {
-  type        = list(string)
-  description = "The ids of the google projects into which this product is deployed."
+
+resource "google_cloud_identity_group" "builders" {
+  display_name = "Builders of the ${name} product"
+  parent       = "customers/C02656uev"
+  description  = "Members have full access to everything in the organisation."
+  group_key {
+    id = "${var.name}.builders@${var.domain}"
+  }
+  labels = {
+    "cloudidentity.googleapis.com/groups.discussion_forum" = ""
+  }
+}
+
+resource "google_cloud_identity_group_membership" "builders" {
+  for_each = toset(var.builders)
+  group    = google_cloud_identity_group.builders.id
+  preferred_member_key {
+    id = each.key
+  }
+  roles {
+    name = "MEMBER"
+  }
 }
 
 resource "google_artifact_registry_repository" "main" {
@@ -44,66 +63,52 @@ resource "google_artifact_registry_repository" "main" {
   }
 }
 
-resource "google_service_account" "main" {
-  for_each     = toset(var.environment_projects)
-  project      = each.key
-  account_id   = "${var.name}-main"
-  display_name = "${var.name}-main"
-}
-
-resource "google_spanner_database_iam_member" "fine_grained" {
-  for_each = toset(var.environment_projects)
-  project  = var.org_project
-  instance = var.spanner_instance
-  database = each.key
-  role     = "roles/spanner.fineGrainedAccessUser"
-  member   = "serviceAccount:${google_service_account.main[each.key].email}"
-}
-
-resource "google_spanner_database_iam_member" "database_role" {
-  for_each = toset(var.environment_projects)
-  project  = var.org_project
-  instance = var.spanner_instance
-  database = each.key
-  role     = "roles/spanner.databaseRoleUser"
-  condition {
-    title      = "Fine grained role access"
-    expression = "resource.type == \"spanner.googleapis.com/DatabaseRole\" && resource.name.endsWith(\"/${var.name}\")"
-  }
-  member = "serviceAccount:${google_service_account.main[each.key].email}"
+resource "google_artifact_registry_repository_iam_member" "builders" {
+  project    = var.org_project
+  repository = google_artifact_registry_repository.main.repository_id
+  location   = var.region
+  member     = google_cloud_identity_group.builders.group_key[0].id
+  role       = "roles/artifactregistry.writer"
 }
 
 resource "google_storage_bucket" "main" {
-  for_each = toset(var.environment_projects)
-  name     = "${var.name}.${each.key}.${var.bucket_domain}"
-  project  = each.key
-  location = var.region
-
-  soft_delete_policy {
-    retention_duration_seconds = 604800 // 7 days
-  }
+  name                     = "${var.name}.${var.org_project}.${var.domain}"
+  location                 = var.region
+  project                  = var.org_project
+  public_access_prevention = "enforced"
   versioning {
     enabled = true
   }
+  soft_delete_policy {
+    retention_duration_seconds = 604800 // 7 days
+  }
   uniform_bucket_level_access = true
 
-  // delete non-current objects older than 3 days
   lifecycle_rule {
-    condition {
-      age                = 3
-      num_newer_versions = 1
-    }
     action {
       type = "Delete"
+    }
+    condition {
+      age                = 30
+      num_newer_versions = 10
     }
   }
 }
 
-resource "google_storage_bucket_iam_member" "main" {
-  for_each = toset(var.environment_projects)
-  bucket   = google_storage_bucket.main[each.key].name
-  role     = "roles/storage.admin"
-  member   = "serviceAccount:${google_service_account.main[each.key].email}"
+resource "google_storage_bucket_iam_member" "builders" {
+  bucket = google_storage_bucket.main.name
+  member = google_cloud_identity_group.builders.group_key[0].id
+  role   = "roles/storage.objectAdmin"
 }
 
+resource "google_storage_managed_folder" "folder" {
+  bucket = "tfstate.${var.domain}"
+  name   = "${var.name}/"
+}
 
+resource "google_storage_managed_folder_iam_member" "builders" {
+  bucket         = google_storage_bucket.main.name
+  managed_folder = google_storage_managed_folder.folder.name
+  member         = google_cloud_identity_group.builders.group_key[0].id
+  role           = "roles/storage.objectAdmin"
+}
