@@ -61,6 +61,7 @@ resource "google_project_service" "main" {
     "domains.googleapis.com",
     "certificatemanager.googleapis.com",
     "spanner.googleapis.com",
+    "cloudidentity.googleapis.com",
   ])
   project            = google_project.main.project_id
   service            = each.key

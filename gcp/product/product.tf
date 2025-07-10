@@ -19,12 +19,12 @@ variable "customer_id" {
   description = "The google workspace or cloud identity customer id, e.g. C01234h"
 }
 variable "builders" {
-  type        = string
+  type        = list(string)
   description = "Members can read and write to the product's bucket and docker registry."
 }
 
 resource "google_cloud_identity_group" "builders" {
-  display_name = "Builders of the ${name} product"
+  display_name = "Builders of the ${var.name} product"
   parent       = "customers/${var.customer_id}"
   description  = "Members have full access to everything in the organisation."
   group_key {
@@ -71,7 +71,7 @@ resource "google_artifact_registry_repository_iam_member" "builders" {
   project    = var.org_project
   repository = google_artifact_registry_repository.main.repository_id
   location   = var.region
-  member     = google_cloud_identity_group.builders.group_key[0].id
+  member     = "group:${google_cloud_identity_group.builders.group_key[0].id}"
   role       = "roles/artifactregistry.writer"
 }
 
@@ -101,7 +101,7 @@ resource "google_storage_bucket" "main" {
 
 resource "google_storage_bucket_iam_member" "builders" {
   bucket = google_storage_bucket.main.name
-  member = google_cloud_identity_group.builders.group_key[0].id
+  member = "group:${google_cloud_identity_group.builders.group_key[0].id}"
   role   = "roles/storage.objectAdmin"
 }
 
@@ -111,8 +111,8 @@ resource "google_storage_managed_folder" "folder" {
 }
 
 resource "google_storage_managed_folder_iam_member" "builders" {
-  bucket         = google_storage_bucket.main.name
+  bucket         = "tfstate.${var.domain}"
   managed_folder = google_storage_managed_folder.folder.name
-  member         = google_cloud_identity_group.builders.group_key[0].id
+  member         = "group:${google_cloud_identity_group.builders.group_key[0].id}"
   role           = "roles/storage.objectAdmin"
 }
