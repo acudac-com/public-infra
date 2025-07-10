@@ -1,68 +1,61 @@
 variable "name" {
   type        = string
-  description = "The name of the Spanner instance. This is used to identify the instance within the project."
+  description = "The name of the instance. If empty, the config is used as the name."
+  default     = ""
+}
+variable "project" {
+  type        = string
+  description = "The id of the project to deploy the instance in."
 }
 variable "config" {
   type        = string
-  description = "The name of the instance's configuration (similar but not quite the same as a region) which defines the geographic placement and replication of your databases in this instance. It determines where your data is stored. Values are typically of the form 'regional-europe-west1' , 'us-central' etc."
+  description = "The single-,dual-, or multi-region config to use, e.g. regional-europe-west1."
 }
-variable "processing_units" {
-  type        = number
-  description = "The number of processing units allocated to this instance, e.g. 100, 200, etc."
+variable "admins" {
+  type        = list(string)
+  description = "Members have admin rights on the instance."
+  default     = []
+}
+variable "viewers" {
+  type        = list(string)
+  description = "Members can view the instance."
+  default     = []
 }
 variable "edition" {
   type        = string
-  description = "The optional edition selected for this instance. Different editions provide different capabilities at different price points. Possible values: STANDARD (default), ENTERPRISE, ENTERPRISE_PLUS"
+  description = "Different editions provide different capabilities at different price points. Possible values: STANDARD (default), ENTERPRISE, ENTERPRISE_PLUS"
   default     = "STANDARD"
 }
-variable "dev_dbs" {
-  type        = list(string)
-  description = "The list of databases to create for development. These databases won't be backed up."
+variable "processing_units" {
+  type        = number
+  description = "The number of processing units allocated to the main instance if edition was specified. Default is 100."
+  default     = 100
 }
-variable "prod_dbs" {
-  type        = list(string)
-  description = "The list of databases to create for production. These databases will be backed up."
+
+locals {
+  name = var.name == "" ? trimprefix(var.config, "regional-") : var.name
 }
 
 resource "google_spanner_instance" "main" {
-  name                         = var.name
+  name                         = local.name
+  project                      = var.project
   config                       = var.config
-  display_name                 = var.name
+  display_name                 = local.name
   processing_units             = var.processing_units
   edition                      = var.edition
   default_backup_schedule_type = "NONE"
 }
 
-resource "google_spanner_database" "dev" {
-  for_each                 = toset(var.dev_dbs)
-  deletion_protection      = false
-  instance                 = google_spanner_instance.main.name
-  name                     = each.key
-  version_retention_period = "1h"
-  database_dialect         = "GOOGLE_STANDARD_SQL"
+resource "google_spanner_instance_iam_member" "admins" {
+  for_each = toset(var.admins)
+  instance = google_spanner_instance.main.name
+  role     = "roles/spanner.admin"
+  member   = each.key
 }
 
-resource "google_spanner_database" "prod" {
-  for_each                 = toset(var.prod_dbs)
-  deletion_protection      = false
-  instance                 = google_spanner_instance.main.name
-  name                     = each.key
-  version_retention_period = "1h"
-  database_dialect         = "GOOGLE_STANDARD_SQL"
+resource "google_spanner_instance_iam_member" "viewers" {
+  for_each = toset(var.viewers)
+  instance = google_spanner_instance.main.name
+  role     = "roles/spanner.viewer"
+  member   = each.key
 }
-
-resource "google_spanner_backup_schedule" "prod" {
-  for_each           = toset(var.prod_dbs)
-  instance           = google_spanner_instance.main.name
-  database           = google_spanner_database.prod[each.key].name
-  name               = "daily-full"
-  retention_duration = "1209600s" // 14 days
-  spec {
-    cron_spec {
-      text = "0 0 * * *" // Every day at midnight
-    }
-  }
-  full_backup_spec {
-  }
-}
-

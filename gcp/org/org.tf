@@ -32,16 +32,6 @@ variable "developers" {
   default     = []
   description = "Members get the Storage Writer role to the package-development bucket. Note that organisation owners, product owners and product developers are automatically added to this group."
 }
-variable "spanner_edition" {
-  type        = string
-  description = "If specified, a 'main' instance is created on this edition. Different editions provide different capabilities at different price points. Possible values: STANDARD, ENTERPRISE, ENTERPRISE_PLUS"
-  default     = ""
-}
-variable "spanner_processing_units" {
-  type        = number
-  description = "The number of processing units allocated to the main instance if edition was specified. Default is 100."
-  default     = 100
-}
 
 resource "google_organization_policy" "disabled" {
   for_each   = toset(["iam.disableServiceAccountKeyCreation"])
@@ -194,15 +184,4 @@ resource "google_storage_bucket_iam_member" "package_developers" {
   role       = "roles/storage.objectAdmin"
   member     = each.key
   depends_on = [google_cloud_identity_group.developers]
-}
-
-resource "google_spanner_instance" "main" {
-  count                        = var.spanner_edition == "" ? 0 : 1
-  name                         = "main"
-  project                      = var.project
-  config                       = "regional-${var.region}"
-  display_name                 = "main"
-  processing_units             = var.spanner_processing_units
-  edition                      = var.spanner_edition
-  default_backup_schedule_type = "NONE"
 }
