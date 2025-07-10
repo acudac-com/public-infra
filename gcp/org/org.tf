@@ -19,6 +19,10 @@ variable "region" {
   description = "The optional region of region specific shared resources like the tfstate and git GCS buckets. Default is europe-west1"
   default     = "europe-west1"
 }
+variable "customer_id" {
+  type        = string
+  description = "The google workspace or cloud identity customer id, e.g. C01234h"
+}
 variable "owners" {
   type        = list(string)
   description = "Members have full access to everything in the organisation."
@@ -69,7 +73,7 @@ resource "google_compute_shared_vpc_host_project" "main" {
 
 resource "google_cloud_identity_group" "owners" {
   display_name = "Organisation Owners"
-  parent       = "customers/C02656uev"
+  parent       = "customers/${var.customer_id}"
   description  = "Members have full access to everything in the organisation."
   group_key {
     id = "owners@${var.domain}"
@@ -109,7 +113,7 @@ resource "google_organization_iam_member" "owners" {
 
 resource "google_cloud_identity_group" "developers" {
   display_name = "Organisation Developers"
-  parent       = "customers/C02656uev"
+  parent       = "customers/${var.customer_id}"
   description  = "Members get the Storage Writer role to the package-development bucket. Note that organisation owners, product owners and product developers are automatically added to this group."
   group_key {
     id = "developers@${var.domain}"
