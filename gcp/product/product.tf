@@ -14,6 +14,10 @@ variable "domain" {
   type        = string
   description = "The organisation's domain which is used for bucket name suffixes and group emails."
 }
+variable "customer_id" {
+  type        = string
+  description = "The google workspace or cloud identity customer id, e.g. C01234h"
+}
 variable "builders" {
   type        = string
   description = "Members can read and write to the product's bucket and docker registry."
@@ -21,7 +25,7 @@ variable "builders" {
 
 resource "google_cloud_identity_group" "builders" {
   display_name = "Builders of the ${name} product"
-  parent       = "customers/C02656uev"
+  parent       = "customers/${var.customer_id}"
   description  = "Members have full access to everything in the organisation."
   group_key {
     id = "${var.name}.builders@${var.domain}"
