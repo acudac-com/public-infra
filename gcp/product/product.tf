@@ -39,7 +39,7 @@ resource "google_cloud_identity_group_membership" "builders" {
   for_each = toset(var.builders)
   group    = google_cloud_identity_group.builders.id
   preferred_member_key {
-    id = each.key
+    id = split(":", each.key)[1]
   }
   roles {
     name = "MEMBER"
